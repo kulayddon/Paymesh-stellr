@@ -1741,3 +1741,113 @@ pub fn contribute(
 
     Ok(())
 }
+
+/// Returns the fundraising progress as a percentage (0-100).
+/// Returns 0 if no fundraising campaign exists.
+pub fn get_fundraising_progress(env: Env, id: BytesN<32>) -> u32 {
+    let key = DataKey::GroupFundraising(id);
+    let config: Option<FundraisingConfig> = env.storage().persistent().get(&key);
+
+    if let Some(fundraising) = config {
+        if fundraising.target_amount > 0 {
+            bump_persistent(&env, &key);
+            let progress = (fundraising.total_raised * 100) / fundraising.target_amount;
+            // Cap at 100%
+            if progress > 100 {
+                100
+            } else {
+                progress as u32
+            }
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}
+
+/// Checks if a fundraising campaign has reached its target.
+pub fn is_fundraising_target_reached(env: Env, id: BytesN<32>) -> bool {
+    let key = DataKey::GroupFundraising(id);
+    let config: Option<FundraisingConfig> = env.storage().persistent().get(&key);
+
+    if let Some(fundraising) = config {
+        bump_persistent(&env, &key);
+        fundraising.total_raised >= fundraising.target_amount
+    } else {
+        false
+    }
+}
+
+/// Returns the total amount a user has contributed across all groups.
+pub fn get_user_total_contributions(env: Env, user: Address) -> i128 {
+    let key = DataKey::UserContributions(user);
+    let contributions: Vec<FundraisingContribution> = env
+        .storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(Vec::new(&env));
+
+    if contributions.is_empty() {
+        return 0;
+    }
+
+    bump_persistent(&env, &key);
+
+    let mut total: i128 = 0;
+    for contribution in contributions.iter() {
+        total += contribution.amount;
+    }
+    total
+}
+
+/// Returns the number of unique contributors to a group's fundraising campaign.
+pub fn get_contributor_count(env: Env, id: BytesN<32>) -> u32 {
+    let key = DataKey::GroupContributions(id);
+    let contributions: Vec<FundraisingContribution> = env
+        .storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(Vec::new(&env));
+
+    if contributions.is_empty() {
+        return 0;
+    }
+
+    bump_persistent(&env, &key);
+
+    // Count unique contributors
+    let mut unique_contributors: Vec<Address> = Vec::new(&env);
+    for contribution in contributions.iter() {
+        let mut found = false;
+        for existing in unique_contributors.iter() {
+            if existing == contribution.contributor {
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            unique_contributors.push_back(contribution.contributor.clone());
+        }
+    }
+    unique_contributors.len()
+}
+
+/// Returns the remaining amount needed to reach the fundraising target.
+/// Returns 0 if target is already reached or no fundraising exists.
+pub fn get_fundraising_remaining(env: Env, id: BytesN<32>) -> i128 {
+    let key = DataKey::GroupFundraising(id);
+    let config: Option<FundraisingConfig> = env.storage().persistent().get(&key);
+
+    if let Some(fundraising) = config {
+        bump_persistent(&env, &key);
+        let remaining = fundraising.target_amount - fundraising.total_raised;
+        if remaining > 0 {
+            remaining
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}

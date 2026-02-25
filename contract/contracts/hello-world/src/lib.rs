@@ -338,6 +338,31 @@ impl AutoShareContract {
     ) {
         autoshare_logic::contribute(env, id, token, amount, contributor).unwrap();
     }
+
+    /// Returns the fundraising progress as a percentage (0-100).
+    pub fn get_fundraising_progress(env: Env, id: BytesN<32>) -> u32 {
+        autoshare_logic::get_fundraising_progress(env, id)
+    }
+
+    /// Checks if a fundraising campaign has reached its target.
+    pub fn is_fundraising_target_reached(env: Env, id: BytesN<32>) -> bool {
+        autoshare_logic::is_fundraising_target_reached(env, id)
+    }
+
+    /// Returns the total amount a user has contributed across all groups.
+    pub fn get_user_total_contributions(env: Env, user: Address) -> i128 {
+        autoshare_logic::get_user_total_contributions(env, user)
+    }
+
+    /// Returns the number of unique contributors to a group's fundraising campaign.
+    pub fn get_contributor_count(env: Env, id: BytesN<32>) -> u32 {
+        autoshare_logic::get_contributor_count(env, id)
+    }
+
+    /// Returns the remaining amount needed to reach the fundraising target.
+    pub fn get_fundraising_remaining(env: Env, id: BytesN<32>) -> i128 {
+        autoshare_logic::get_fundraising_remaining(env, id)
+    }
 }
 
 // 3. Link the tests (Requirement: Unit Tests)
@@ -388,6 +413,10 @@ mod fundraising_start_test;
 #[cfg(test)]
 #[path = "tests/fundraising_contribute_test.rs"]
 mod fundraising_contribute_test;
+
+#[cfg(test)]
+#[path = "tests/fundraising_improvements_test.rs"]
+mod fundraising_improvements_test;
 
 #[cfg(test)]
 #[path = "tests/max_members_test.rs"]
