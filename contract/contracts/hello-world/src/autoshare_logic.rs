@@ -390,19 +390,19 @@ pub fn add_group_member(
     env.storage().persistent().set(&key, &details);
     bump_persistent(&env, &key);
 
-    // Update MemberGroups index
-    let member_groups_key = DataKey::MemberGroups(address.clone());
-    let mut member_groups: Vec<BytesN<32>> = env
-        .storage()
-        .persistent()
-        .get(&member_groups_key)
-        .unwrap_or(Vec::new(&env));
+// Update MemberGroups index
+let member_groups_key = DataKey::MemberGroups(address.clone());
+let mut member_groups: Vec<BytesN<32>> = env.storage().persistent().get(&member_groups_key).unwrap_or(Vec::new(&env));
+member_groups.push_back(id.clone());
+env.storage().persistent().set(&member_groups_key, &member_groups);
+bump_persistent(&env, &member_groups_key);
 
-    member_groups.push_back(id.clone());
-    env.storage()
-        .persistent()
-        .set(&member_groups_key, &member_groups);
-    bump_persistent(&env, &member_groups_key);
+AutoshareUpdated {
+    id: id.clone(),
+    updater: caller,
+}.publish(&env);
+
+crate::base::events::emit_member_added(&env, id.clone(), address.clone(), percentage);
 
     Ok(())
 }
