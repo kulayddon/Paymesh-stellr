@@ -185,6 +185,11 @@ impl AutoShareContract {
         autoshare_logic::delete_group(env, id, caller).unwrap();
     }
 
+    /// Reduces the remaining usage count of a group by 1.
+    pub fn reduce_usage(env: Env, id: BytesN<32>) {
+        autoshare_logic::reduce_usage(env, id).unwrap();
+    }
+
     /// Returns the current admin address.
     pub fn get_admin(env: Env) -> Address {
         autoshare_logic::get_admin(env).unwrap()
@@ -454,5 +459,18 @@ mod token_management_test;
 #[path = "tests/topup_subscription_test.rs"]
 mod topup_subscription_test;
 
+#[cfg(test)]
 #[path = "tests/get_active_groups_test.rs"]
 mod get_active_groups_test;
+
+#[cfg(test)]
+#[path = "tests/distribution_rounding_test.rs"]
+mod distribution_rounding_test;
+
+#[cfg(test)]
+#[path = "tests/event_emission_test.rs"]
+mod event_emission_test;
+
+#[cfg(test)]
+#[path = "tests/delete_group_test.rs"]
+mod delete_group_test;

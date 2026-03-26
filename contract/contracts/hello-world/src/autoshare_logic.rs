@@ -7,8 +7,8 @@ use crate::base::events::{
 
 use crate::base::types::{
     AutoShareDetails, DistributionHistory, DistributionRecord, FundraisingConfig,
-    FundraisingContribution, GroupMember, GroupStats, MemberAmount, MemberDistributionRecord,
-    PaymentHistory,
+    FundraisingContribution, GroupMember, GroupPage, GroupStats, MemberAmount,
+    MemberDistributionRecord, PaymentHistory,
 };
 use soroban_sdk::{contracttype, token, Address, BytesN, Env, String, Vec};
 
@@ -392,19 +392,26 @@ pub fn add_group_member(
     env.storage().persistent().set(&key, &details);
     bump_persistent(&env, &key);
 
-// Update MemberGroups index
-let member_groups_key = DataKey::MemberGroups(address.clone());
-let mut member_groups: Vec<BytesN<32>> = env.storage().persistent().get(&member_groups_key).unwrap_or(Vec::new(&env));
-member_groups.push_back(id.clone());
-env.storage().persistent().set(&member_groups_key, &member_groups);
-bump_persistent(&env, &member_groups_key);
+    // Update MemberGroups index
+    let member_groups_key = DataKey::MemberGroups(address.clone());
+    let mut member_groups: Vec<BytesN<32>> = env
+        .storage()
+        .persistent()
+        .get(&member_groups_key)
+        .unwrap_or(Vec::new(&env));
+    member_groups.push_back(id.clone());
+    env.storage()
+        .persistent()
+        .set(&member_groups_key, &member_groups);
+    bump_persistent(&env, &member_groups_key);
 
-AutoshareUpdated {
-    id: id.clone(),
-    updater: caller,
-}.publish(&env);
+    AutoshareUpdated {
+        id: id.clone(),
+        updater: caller,
+    }
+    .publish(&env);
 
-crate::base::events::emit_member_added(&env, id.clone(), address.clone(), percentage);
+    crate::base::events::emit_member_added(&env, id.clone(), address.clone(), percentage);
 
     Ok(())
 }
@@ -629,9 +636,10 @@ pub fn add_supported_token(env: Env, token: Address, admin: Address) -> Result<(
         }
     }
 
-    tokens.push_back(token);
+    tokens.push_back(token.clone());
     env.storage().persistent().set(&tokens_key, &tokens);
     bump_persistent(&env, &tokens_key);
+    crate::base::events::emit_token_added(&env, admin, token);
     Ok(())
 }
 
@@ -666,6 +674,7 @@ pub fn remove_supported_token(env: Env, token: Address, admin: Address) -> Resul
 
     env.storage().persistent().set(&tokens_key, &new_tokens);
     bump_persistent(&env, &tokens_key);
+    crate::base::events::emit_token_removed(&env, admin, token);
     Ok(())
 }
 
@@ -929,6 +938,15 @@ pub fn get_group_distributions(env: Env, id: BytesN<32>) -> Vec<DistributionReco
         .persistent()
         .get(&group_dist_key)
         .unwrap_or(Vec::new(&env))
+}
+
+pub fn get_group_total_distributed(env: Env, id: BytesN<32>) -> i128 {
+    let distributions = get_group_distributions(env, id);
+    let mut total: i128 = 0;
+    for dist in distributions.iter() {
+        total += dist.total_amount;
+    }
+    total
 }
 
 pub fn get_member_distributions(env: Env, member: Address) -> Vec<MemberDistributionRecord> {
@@ -1496,7 +1514,8 @@ fn perform_distribution(
     let mut member_amounts: Vec<MemberAmount> = Vec::new(env);
     for (idx, member) in members.iter().enumerate() {
         let share = if idx + 1 < members_len {
-            (amount * (member.percentage as i128)) / 100
+            let percentage = member.percentage as i128;
+            (amount / 100) * percentage + (amount % 100) * percentage / 100
         } else {
             amount - distributed
         };
@@ -1716,8 +1735,10 @@ pub fn contribute(
 
     // Update fundraising total
     fundraising_config.total_raised += amount;
+    let mut completed = false;
     if fundraising_config.total_raised >= fundraising_config.target_amount {
         fundraising_config.is_active = false;
+        completed = true;
     }
     env.storage()
         .persistent()
@@ -1771,8 +1792,19 @@ pub fn contribute(
     stats.contribution_count += 1;
     env.storage().persistent().set(&stats_key, &stats);
     bump_persistent(&env, &stats_key);
+
     // Emit new contribution event for fundraising tracking
     emit_contribution(&env, &id, &contributor, &token, amount);
+
+    if completed {
+        crate::base::events::emit_fundraising_completed(
+            &env,
+            id.clone(),
+            fundraising_config.target_amount,
+            fundraising_config.total_raised,
+            stats.contribution_count,
+        );
+    }
 
     Ok(())
 }
