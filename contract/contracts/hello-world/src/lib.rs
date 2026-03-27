@@ -47,6 +47,11 @@ impl AutoShareContract {
         autoshare_logic::get_paused_status(&env)
     }
 
+    /// Returns the current contract version.
+    pub fn get_contract_version(env: Env) -> u32 {
+        autoshare_logic::get_contract_version(env)
+    }
+
     /// Admin-only tool to force-delete any group.
     pub fn admin_delete_group(env: Env, admin: Address, id: BytesN<32>) {
         autoshare_logic::admin_delete_group(env, admin, id).unwrap();
@@ -135,6 +140,16 @@ impl AutoShareContract {
     /// Returns the total number of groups.
     pub fn get_group_count(env: Env) -> u32 {
         autoshare_logic::get_group_count(env)
+    }
+
+    /// Returns groups by active/inactive status.
+    pub fn get_groups_by_status_paginated(
+        env: Env,
+        is_active: bool,
+        offset: u32,
+        limit: u32,
+    ) -> crate::base::types::GroupPage {
+        autoshare_logic::get_groups_by_status_paginated(env, is_active, offset, limit)
     }
 
     /// Checks if an address is a member of a specific group.
